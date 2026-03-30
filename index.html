@@ -904,6 +904,13 @@
           <textarea class="fi" id="car-about" rows="5" placeholder="Briefly describe your background, skills, and why you'd like to join Avi &amp; Co..."></textarea>
         </div>
 
+        <!-- resume upload -->
+        <div class="fg">
+          <label class="fl-lbl">Upload Resume (PDF, DOC, DOCX)</label>
+          <input class="fi" type="file" id="car-resume" accept=".pdf,.doc,.docx">
+          <div style="font-size:12px;color:var(--ink4);margin-top:6px">Max file size 5MB. Optional but recommended.</div>
+        </div>
+
         <!-- submit -->
         <button class="btn btn-teal btn-lg" style="width:100%;justify-content:center;margin-top:4px" onclick="handleCareerForm(this)">
           <i class="fas fa-paper-plane"></i> Submit Application
@@ -1134,16 +1141,48 @@ function handleCareerForm(btn) {
     }
   });
   if (!valid) return;
+
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
   btn.disabled = true;
-  setTimeout(() => {
-    btn.innerHTML = orig;
-    btn.disabled = false;
-    document.getElementById('car-success').style.display = 'block';
-    required.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-    setTimeout(() => { document.getElementById('car-success').style.display = 'none'; }, 5000);
-  }, 1800);
+
+  const endpoint = 'https://formsubmit.co/info@aviandco.in';
+  const formData = new FormData();
+  formData.append('_subject', 'Career Application: ' + (document.getElementById('car-position').value || 'Application'));
+  formData.append('_captcha', 'false');
+  formData.append('_honey', '');
+  // append required fields
+  required.forEach(id => formData.append(id, document.getElementById(id).value.trim()));
+
+  // optional resume file
+  const resumeInput = document.getElementById('car-resume');
+  if (resumeInput && resumeInput.files && resumeInput.files[0]) {
+    const file = resumeInput.files[0];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      alert('Resume must be under 5MB. Please choose a smaller file.');
+      btn.innerHTML = orig;
+      btn.disabled = false;
+      return;
+    }
+    formData.append('car-resume', file, file.name);
+  }
+
+  fetch(endpoint, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
+    .then(resp => {
+      if (resp.ok) return resp.json().catch(() => ({}));
+      return resp.json().then(err => Promise.reject(err));
+    }).then(() => {
+      document.getElementById('car-success').style.display = 'block';
+      required.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      if (resumeInput) resumeInput.value = '';
+      btn.innerHTML = '<i class="fas fa-check"></i> Submitted!';
+      setTimeout(() => { document.getElementById('car-success').style.display = 'none'; btn.innerHTML = orig; btn.disabled = false; }, 3500);
+    }).catch(() => {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+      alert('Sorry, something went wrong. Please try again or email info@aviandco.in');
+    });
 }
 
 /* ─── Contact Form ─── */
@@ -1160,15 +1199,38 @@ function handleForm(btn) {
     }
   });
   if (!valid) return;
+
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
   btn.disabled = true;
-  setTimeout(() => {
+
+  const endpoint = 'https://formsubmit.co/info@aviandco.in';
+  const formData = new FormData();
+  // optional metadata for email
+  const subject = 'Website Contact: ' + (document.getElementById('con-service').value || 'New message');
+  formData.append('_subject', subject);
+  formData.append('_captcha', 'false');
+  formData.append('_honey', ''); // honeypot (empty)
+  // include the fields
+  fields.forEach(id => formData.append(id, document.getElementById(id).value.trim()));
+
+  fetch(endpoint, {
+    method: 'POST',
+    body: formData,
+    headers: { 'Accept': 'application/json' }
+  }).then(resp => {
+    if (resp.ok) return resp.json().catch(() => ({}));
+    return resp.json().then(err => Promise.reject(err));
+  }).then(() => {
     btn.innerHTML = '<i class="fas fa-check"></i> Message Sent Successfully!';
     btn.style.background = 'linear-gradient(135deg,#27AE60,#1e8449)';
-    ['con-fname','con-lname','con-email','con-phone','con-service','con-message'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; btn.disabled = false; }, 3500);
-  }, 1800);
+  }).catch(() => {
+    btn.innerHTML = orig;
+    btn.disabled = false;
+    alert('Sorry, there was a problem sending your message. Please try again or email info@aviandco.in');
+  });
 }
 
 
